@@ -6,8 +6,8 @@
   @ts-ignore 
 */
 
-const SHEET_ID = '1z5pmGZ3B_bDfdON0bPU1MxqANYm5luHdeekvctrxJeQ';
-const GEMINI_API_KEY = 'AQ.Ab8RN6IQSjqkG2MsFmtavCpV47nCSLBZUQunsyFYmo2ZjEnYkA';
+const SHEET_ID = '1xc-Ka5TJBa7QxawqcCskE-eZQq-eqsIN7VUSdLtZGRQ';
+const GEMINI_API_KEY = '';
 
 // ==========================================
 // FITUR 3: "AI CUSTOM CONTEXT" - LIBRARY TEMPLATE / STARTER KITS
