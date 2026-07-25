@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppCraft Fullstack</title>
+  
+  <!-- JSZip untuk fitur Download ZIP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-dark: #0f172a; --bg-panel: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8;
+      --border: #334155; --primary: #3b82f6; --primary-hover: #2563eb;
+      --success: #10b981; --success-hover: #059669; --purple: #8b5cf6; --purple-hover: #7c3aed;
+      --danger: #ef4444; --font-sans: 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font-sans); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    .navbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border); }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.1rem; }
+    .badge { background: #334155; color: #cbd5e1; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 500; transition: 0.3s; }
+    .badge.active { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+
+    .layout { display: flex; flex: 1; overflow: hidden; }
+    .sidebar { width: 320px; background: var(--bg-panel); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+    .editor-area { flex: 1; display: flex; flex-direction: column; }
+
+    .panel { display: flex; flex-direction: column; gap: 12px; }
+    .panel h3 { font-size: 1rem; color: var(--text-main); }
+    .desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+    label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .file-tree { list-style: none; font-size: 0.85rem; margin-top: 5px; }
+    .file-tree ul { list-style: none; padding-left: 14px; border-left: 1px solid var(--border); margin-left: 6px; margin-top: 4px; }
+    .file-tree li { padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 8px; color: var(--text-muted); user-select: none; margin-bottom: 2px;}
+    .file-tree li.file { cursor: pointer; transition: 0.2s;}
+    .file-tree li.file:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+    .file-tree li.file.active-file { background: rgba(59, 130, 246, 0.15); color: var(--primary); font-weight: 600; border-left: 3px solid var(--primary); }
+    .file-tree li.folder { cursor: default; font-weight: 600; flex-direction: column; align-items: flex-start; color: #cbd5e1;}
+
+    .input-modern { background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 10px 12px; border-radius: 6px; outline: none; transition: 0.2s; font-family: var(--font-sans); }
+    .input-modern:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+
+    .btn { padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; color: white; font-size: 0.9rem;}
+    .btn:disabled { opacity: 0.6; cursor: wait; }
+    .btn-primary { background: var(--primary); } .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-success { background: var(--success); } .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+    .btn-purple { background: var(--purple); } .btn-purple:hover:not(:disabled) { background: var(--purple-hover); }
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .editor-header { background: var(--bg-panel); border-bottom: 1px solid var(--border); padding: 0 16px; display: flex; align-items: center; justify-content: space-between;}
+    .tab { padding: 10px 20px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg-dark); }
+    .code-editor { flex: 1; background: var(--bg-dark); color: #e2e8f0; font-family: var(--font-mono); font-size: 13px; padding: 20px; border: none; outline: none; resize: none; line-height: 1.6; }
+
+    .workspace-split { display: flex; flex: 1; overflow: hidden; }
+    .preview-pane { flex: 1; display: flex; flex-direction: column; background: #ffffff; border-left: 1px solid var(--border); }
+    .preview-header { background: #f1f5f9; padding: 6px 12px; font-size: 0.8rem; color: #334155; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; font-weight: 600; }
+    .preview-frame { flex: 1; width: 100%; border: none; background: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 4px; }
+
+    .terminal-container { height: 180px; border-top: 1px solid var(--border); display: flex; flex-direction: column; background: #000; }
+    .terminal-header { background: #1a1a1a; padding: 6px 16px; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .terminal-body { flex: 1; padding: 12px 16px; color: #22c55e; font-family: var(--font-mono); font-size: 0.85rem; overflow-y: auto; line-height: 1.5; }
+
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; font-weight: 500; z-index: 1000; transition: 0.3s; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+    .toast.success { background: var(--success); color: white; }
+    .toast.error { background: var(--danger); color: white; }
+    .toast.warn { background: #eab308; color: #000; }
+    .hidden { display: none !important; }
+
+    .select-modern { background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 10px 12px; border-radius: 6px; outline: none; font-family: var(--font-sans); font-size: 0.85rem; width: 100%; }
+    .select-modern:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+    .tpl-desc { font-size: 0.78rem; color: var(--text-muted); background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 6px; padding: 8px 10px; line-height: 1.4; }
+
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+    .btn-outline:hover:not(:disabled) { background: rgba(255,255,255,0.06); }
+
+    .deploy-result { font-size: 0.8rem; padding: 8px 10px; border-radius: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); color: var(--success); word-break: break-all; }
+    .deploy-result a { color: var(--success); font-weight: 700; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+    .modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { font-size: 1rem; }
+    .modal-close { cursor: pointer; color: var(--text-muted); background: none; border: none; font-size: 1.2rem; }
+    .modal-close:hover { color: var(--text-main); }
+    .modal-body { padding: 12px 20px; overflow-y: auto; flex: 1; }
+    .version-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+    .version-item:last-child { border-bottom: none; }
+    .version-meta { font-size: 0.8rem; color: var(--text-muted); }
+    .version-meta strong { color: var(--text-main); display: block; font-size: 0.85rem; margin-bottom: 2px; }
+    .version-empty { font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 20px 0; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      <span>AppCraft Fullstack</span>
+    </div>
+    <div id="user-badge" class="badge">Status: Guest</div>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div id="panel-auth" class="panel">
+        <h3>Aktivasi Workspace</h3>
+        <input type="email" id="input-email" class="input-modern" placeholder="email@domain.com">
+        <button id="btn-auth" class="btn btn-primary" onclick="app.activate()">Mulai Coding</button>
+      </div>
+
+      <div id="panel-explorer" class="panel hidden">
+        <h3>📁 File Explorer</h3>
+        <ul class="file-tree">
+          <li class="file active-file" data-file="index.html" onclick="app.switchFile('index.html')">📄 index.html</li>
+          <li class="file" data-file="style.css" onclick="app.switchFile('style.css')">🎨 style.css</li>
+          <li class="file" data-file="script.js" onclick="app.switchFile('script.js')">📜 script.js</li>
+          
+          <li class="folder">📂 src/
+            <ul>
+              <li class="file" data-file="src/App.jsx" onclick="app.switchFile('src/App.jsx')">⚛️ App.jsx</li>
+              <li class="file" data-file="src/main.jsx" onclick="app.switchFile('src/main.jsx')">⚛️ main.jsx</li>
+            </ul>
+          </li>
+
+          <li class="folder">📂 backend/
+            <ul>
+              <li class="file" data-file="server.js" onclick="app.switchFile('server.js')">🟢 server.js</li>
+              <li class="file" data-file="Code.gs" onclick="app.switchFile('Code.gs')">🟨 Code.gs</li>
+            </ul>
+          </li>
+          
+          <li class="folder">📂 routes/
+            <ul><li class="file" data-file="routes/api.js" onclick="app.switchFile('routes/api.js')">🛣️ api.js</li></ul>
+          </li>
+          <li class="folder">📂 controllers/
+            <ul><li class="file" data-file="controllers/main.js" onclick="app.switchFile('controllers/main.js')">🎮 main.js</li></ul>
+          </li>
+
+          <li class="folder">📂 prisma/
+            <ul><li class="file" data-file="prisma/schema.prisma" onclick="app.switchFile('prisma/schema.prisma')">🗄️ schema.prisma</li></ul>
+          </li>
+          <li class="file" data-file="schema.sql" onclick="app.switchFile('schema.sql')">🗃️ schema.sql</li>
+
+          <li class="folder">📂 config & devops
+            <ul>
+              <li class="file" data-file="README.md" onclick="app.switchFile('README.md')">📖 README.md</li>
+              <li class="file" data-file="package.json" onclick="app.switchFile('package.json')">📦 package.json</li>
+              <li class="file" data-file="package-lock.json" onclick="app.switchFile('package-lock.json')">🔒 package-lock.json</li>
+              <li class="file" data-file="tsconfig.json" onclick="app.switchFile('tsconfig.json')">🟦 tsconfig.json</li>
+              <li class="file" data-file="vite.config.js" onclick="app.switchFile('vite.config.js')">⚡ vite.config.js</li>
+              <li class="file" data-file="webpack.config.js" onclick="app.switchFile('webpack.config.js')">📦 webpack.config.js</li>
+              <li class="file" data-file="vercel.json" onclick="app.switchFile('vercel.json')">▲ vercel.json</li>
+              <li class="file" data-file="netlify.toml" onclick="app.switchFile('netlify.toml')">💠 netlify.toml</li>
+              <li class="file" data-file="Dockerfile" onclick="app.switchFile('Dockerfile')">🐳 Dockerfile</li>
+              <li class="file" data-file=".github/workflows/deploy.yml" onclick="app.switchFile('.github/workflows/deploy.yml')">🚀 deploy.yml</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div id="panel-templates" class="panel hidden">
+        <h3>📚 Starter Kits</h3>
+        <p class="desc">Pilih template acuan agar AI tidak mulai dari nol — hasilnya lebih rapi, konsisten & minim bug.</p>
+        <select id="input-template" class="select-modern" onchange="app.onTemplateChange()">
+          <option value="">Tanpa Template (Bebas)</option>
+          <option value="pos_kasir">🧾 Template POS Kasir</option>
+          <option value="landing_page">🚀 Template Landing Page</option>
+          <option value="portal_berita">📰 Template Portal Berita</option>
+        </select>
+        <div id="template-desc" class="tpl-desc hidden"></div>
+      </div>
+
+      <div id="panel-ai" class="panel hidden">
+        <h3>✨ Fullstack AI Agent</h3>
+        <textarea id="input-prompt" class="input-modern" placeholder="Contoh: Buatkan aplikasi POS Kasir React dengan backend Express..." style="height: 100px; resize: none;"></textarea>
+        <button id="btn-ai" class="btn btn-purple" onclick="app.askGemini()">Generate Full Project</button>
+      </div>
+
+      <div id="panel-config" class="panel hidden">
+        <hr style="border-color: var(--border);">
+        <label>Project ID (URL Slug)</label>
+        <input type="text" id="input-project" class="input-modern" placeholder="ex: my-super-app">
+        <div class="action-grid" style="margin-top: 5px;">
+          <button id="btn-save" class="btn btn-primary" onclick="app.save()">Simpan</button>
+          <button id="btn-publish" class="btn btn-success" onclick="app.publish()">Lihat Web</button>
+          <button id="btn-download" class="btn btn-purple" onclick="app.downloadZip()">Download ZIP</button>
+          <button id="btn-history" class="btn btn-outline" onclick="app.openHistory()">🕒 Riwayat</button>
+        </div>
+      </div>
+
+      <div id="panel-deploy" class="panel hidden">
+        <hr style="border-color: var(--border);">
+        <h3>🌐 Deployment Instan</h3>
+        <p class="desc">Deploy langsung ke internet dalam hitungan detik. Token disimpan hanya di browser Anda.</p>
+        <label>Provider</label>
+        <select id="input-deploy-provider" class="select-modern">
+          <option value="vercel">▲ Vercel</option>
+          <option value="netlify">💠 Netlify</option>
+        </select>
+        <label>Access Token</label>
+        <input type="password" id="input-deploy-token" class="input-modern" placeholder="Personal Access Token">
+        <button id="btn-deploy" class="btn btn-success" onclick="app.deploy()">🚀 Deploy Sekarang</button>
+        <div id="deploy-result" class="deploy-result hidden"></div>
+      </div>
+    </aside>
+
+    <div id="history-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>🕒 Riwayat Versi</h3>
+          <button class="modal-close" onclick="app.closeHistory()">✕</button>
+        </div>
+        <div id="history-body" class="modal-body">
+          <div class="version-empty">Memuat riwayat...</div>
+        </div>
+      </div>
+    </div>
+
+    <section class="editor-area">
+      <div class="editor-header">
+        <div>
+          <span class="tab active" id="active-tab-name">index.html</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 10px;">Auto-saving diaktifkan</span>
+        </div>
+        <button id="btn-toggle-preview" class="btn btn-purple btn-sm" onclick="app.togglePreview()">👀 Buka Preview</button>
+      </div>
+      
+      <div class="workspace-split">
+        <textarea id="input-code" class="code-editor"></textarea>
+        
+        <div id="preview-container" class="preview-pane hidden">
+          <div class="preview-header">
+            <span>🚀 Live Preview (Lokal)</span>
+            <button onclick="app.refreshPreview()" style="background: transparent; border: none; cursor: pointer; color: #2563eb; font-weight: bold; font-size: 0.8rem;">🔄 Refresh</button>
+          </div>
+          <iframe id="preview-frame" class="preview-frame" sandbox="allow-scripts allow-same-origin allow-modals"></iframe>
+        </div>
+      </div>
+      
+      <div class="terminal-container">
+        <div class="terminal-header">Terminal / Build Logs</div>
+        <div id="terminal-log" class="terminal-body">> Menunggu sistem siap...</div>
+      </div>
+    </section>
+  </main>
+  
+  <script>
+    // ==========================================
+    // WAJIB GANTI: URL Web App Google Apps Script Anda
+    // ==========================================
+    const GAS_URL = 'https://script.google.com/macros/s/GANTI_URL_INI/exec';
+
+    const escapeHTML = (str) => {
+      return String(str).replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+      );
+    };
+
+    const ui = {
+      loading: (id, text) => {
+        const btn = document.getElementById(id);
+        btn.dataset.original = btn.innerText;
+        btn.innerText = text;
+        btn.disabled = true;
+      },
+      reset: (id) => {
+        const btn = document.getElementById(id);
+        btn.innerText = btn.dataset.original;
+        btn.disabled = false;
+      },
+      toast: (msg, type = 'success') => {
+        const toast = document.getElementById('toast');
+        toast.className = 'toast ' + type;
+        toast.innerHTML = escapeHTML(msg);
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 5000);
+      },
+      log: (msg, type = 'info') => {
+        const term = document.getElementById('terminal-log');
+        let color = '#22c55e';
+        if (type === 'error') color = '#ef4444';
+        else if (type === 'warn') color = '#eab308';
+        else if (type === 'highlight') color = '#a855f7';
+        
+        const timestamp = new Date().toLocaleTimeString('id-ID');
+        term.innerHTML += '<br><span style="color: #64748b">[' + timestamp + ']</span> <span style="color: ' + color + '">> ' + escapeHTML(msg) + '</span>';
+        term.scrollTop = term.scrollHeight;
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const codeEditor = document.getElementById('input-code');
+      codeEditor.addEventListener('input', (e) => {
+        app.files[app.activeFile] = e.target.value;
+        app.schedulePreviewRefresh();
+      });
+      app.switchFile('index.html');
+    });
+
+    // FITUR 3: deskripsi singkat tiap Starter Kit, ditampilkan di UI saat dipilih
+    const TEMPLATE_INFO = {
+      pos_kasir: '🧾 POS Kasir: daftar produk, keranjang belanja, kalkulasi total & kembalian, riwayat transaksi.',
+      landing_page: '🚀 Landing Page: hero section, fitur unggulan, testimoni, harga, dan call-to-action.',
+      portal_berita: '📰 Portal Berita: daftar artikel, halaman detail, kategori, dan pencarian.'
+    };
+
+    const app = {
+      email: '',
+      activeFile: 'index.html',
+      previewOpen: false,
+      previewTimeout: null,
+      selectedTemplate: '',
+      
+      files: {
+        'index.html': '<!DOCTYPE html>\n<html lang="id">\n<head>\n  <meta charset="UTF-8">\n  <title>App</title>\n</head>\n<body>\n  <h1>Welcome to AppCraft</h1>\n</body>\n</html>',
+        'README.md': '# Panduan Aplikasi\n\nGenerate aplikasi via AI untuk melihat tutorial di sini.'
+      },
+
+      onTemplateChange: () => {
+        const val = document.getElementById('input-template').value;
+        app.selectedTemplate = val;
+        const descBox = document.getElementById('template-desc');
+        if (val && TEMPLATE_INFO[val]) {
+          descBox.innerText = TEMPLATE_INFO[val];
+          descBox.classList.remove('hidden');
+        } else {
+          descBox.classList.add('hidden');
+        }
+      },
+
+      switchFile: (filename) => {
+        app.activeFile = filename;
+        document.getElementById('input-code').value = app.files[filename] || '';
+        document.getElementById('active-tab-name').innerText = filename;
+        
+        document.querySelectorAll('.file-tree .file').forEach(el => el.classList.remove('active-file'));
+        const activeEl = document.querySelector('.file-tree .file[data-file="' + filename + '"]');
+        if (activeEl) activeEl.classList.add('active-file');
+      },
+
+      togglePreview: () => {
+        app.previewOpen = !app.previewOpen;
+        const container = document.getElementById('preview-container');
+        const btn = document.getElementById('btn-toggle-preview');
+        
+        if (app.previewOpen) {
+          container.classList.remove('hidden');
+          btn.innerText = '❌ Tutup Preview';
+          app.refreshPreview();
+          ui.log('Membuka Live Preview Lokal...', 'info');
+        } else {
+          container.classList.add('hidden');
+          btn.innerText = '👀 Buka Preview';
+        }
+      },
+
+      schedulePreviewRefresh: () => {
+        if (!app.previewOpen) return;
+        clearTimeout(app.previewTimeout);
+        app.previewTimeout = setTimeout(() => {
+          app.refreshPreview();
+        }, 800);
+      },
+
+      refreshPreview: () => {
+        if (!app.previewOpen) return;
+        const frame = document.getElementById('preview-frame');
+        let htmlContent = '';
+        
+        if (app.files['src/App.jsx'] || app.files['App.jsx'] || app.files['src/main.jsx']) {
+          let allComponentsCode = '';
+          let mainCode = app.files['src/main.jsx'] || app.files['main.jsx'] || '';
+          
+          for (const [filename, content] of Object.entries(app.files)) {
+            if (filename.endsWith('.jsx') && !filename.includes('main.jsx')) {
+              let cleanContent = content;
+              cleanContent = cleanContent.replace(/import\s+.*?from\s+['"][\.\/]+.*?['"];?/g, '');
+              cleanContent = cleanContent.replace(/export\s+default\s+[a-zA-Z0-9_]+;?/g, '');
+              allComponentsCode += '\n/* File: ' + filename + ' */\n' + cleanContent + '\n';
+            }
+          }
+          
+          mainCode = mainCode.replace(/import\s+.*?from\s+['"][\.\/]+.*?['"];?/g, '');
+
+          htmlContent = '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+            '<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+            '<script type="importmap">\n{"imports": {"react": "https://esm.sh/react@18.2.0","react-dom/client": "https://esm.sh/react-dom@18.2.0/client","lucide-react": "https://esm.sh/lucide-react"}}\n</' + 'script>\n' +
+            '<script src="https://unpkg.com/@babel/standalone/babel.min.js"></' + 'script>\n' +
+            '<style>' + (app.files['style.css'] || '') + '</style>\n' +
+            '</head>\n<body>\n' +
+            '<div id="root"></div>\n' +
+            '<script type="text/babel" data-type="module">\n' +
+            'try {\n' +
+            allComponentsCode + '\n' +
+            mainCode + '\n' +
+            '} catch (err) {\n' +
+            '  document.getElementById("root").innerHTML = "<div style=\'color:red; background:#fee2e2; padding:20px; font-family:sans-serif; border:1px solid #ef4444; border-radius:8px;\'><h3>🚨 React Syntax Error</h3><p>" + err.message + "</p></div>";\n' +
+            '}\n' +
+            '</' + 'script>\n</body>\n</html>';
+            
+        } else {
+          htmlContent = app.files['index.html'] || '<h1>File index.html tidak ditemukan</h1>';
+          if (app.files['style.css']) {
+            htmlContent = htmlContent.replace('</head>', '<style>' + app.files['style.css'] + '</style></head>');
+          }
+          if (app.files['script.js']) {
+            htmlContent = htmlContent.replace('</body>', '<script>' + app.files['script.js'] + '</' + 'script></body>');
+          }
+        }
+
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        frame.src = URL.createObjectURL(blob);
+      },
+      
+      activate: async () => {
+        const emailInput = document.getElementById('input-email').value.trim();
+        if (!emailInput) return ui.toast('Email tidak boleh kosong', 'error');
+
+        ui.loading('btn-auth', 'Memproses...');
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({ action: 'activateAccount', email: emailInput })
+          });
+          const res = await response.json();
+          
+          if (res.status === 'success') {
+            app.email = emailInput;
+            document.getElementById('panel-auth').classList.add('hidden');
+            document.getElementById('panel-explorer').classList.remove('hidden');
+            document.getElementById('panel-config').classList.remove('hidden');
+            document.getElementById('panel-deploy').classList.remove('hidden');
+            document.getElementById('panel-templates').classList.remove('hidden');
+            document.getElementById('panel-ai').classList.remove('hidden');
+            
+            document.getElementById('user-badge').innerText = 'Online';
+            document.getElementById('user-badge').classList.add('active');
+            ui.log('Workspace Fullstack Enterprise siap.');
+          } else throw new Error(res.message);
+        } catch (err) {
+          ui.toast('Gagal terhubung', 'error');
+          ui.log('Network Error: Pastikan URL GAS benar dan otorisasi sudah ANYONE.', 'error');
+        } finally {
+          ui.reset('btn-auth');
+        }
+      },
+
+      save: async () => {
+        const id = document.getElementById('input-project').value.trim();
+        if (!id) return ui.toast('Project ID harus diisi', 'error');
+
+        ui.loading('btn-save', 'Menyimpan...');
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({ action: 'saveProject', projectId: id, email: app.email, code: JSON.stringify(app.files) })
+          });
+          const res = await response.json();
+          if (res.status === 'success') ui.toast('Code saved to Cloud!');
+          else throw new Error(res.message);
+        } catch (err) {
+          ui.toast('Gagal menyimpan', 'error');
+        } finally {
+          ui.reset('btn-save');
+        }
+      },
+
+      publish: () => {
+        const id = document.getElementById('input-project').value.trim();
+        if (!id) return ui.toast('Tentukan Project ID dan simpan terlebih dahulu', 'error');
+        
+        ui.log('Menjalankan Engine Preview untuk Web Browser...', 'warn');
+        window.open(GAS_URL + '?id=' + id, '_blank');
+      },
+
+      downloadZip: async () => {
+        const projectName = document.getElementById('input-project').value.trim() || 'appcraft-project';
+        ui.log('Membungkus file ZIP untuk ' + projectName + '...', 'info');
+        
+        try {
+          const zip = new JSZip();
+          for (const [filename, content] of Object.entries(app.files)) {
+            zip.file(filename, content);
+          }
+          const content = await zip.generateAsync({ type: "blob" });
+          
+          const url = URL.createObjectURL(content);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = projectName + '.zip';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          ui.toast('Project berhasil didownload!', 'success');
+          ui.log('File ' + projectName + '.zip berhasil diunduh.', 'success');
+        } catch (err) {
+          ui.toast('Gagal membuat ZIP', 'error');
+        }
+      },
+
+      askGemini: async () => {
+        const promptInput = document.getElementById('input-prompt').value.trim();
+        if (!promptInput) return ui.toast('Masukkan instruksi untuk AI.', 'error');
+        
+        ui.loading('btn-ai', 'AI Berpikir...');
+        ui.log('Menginstruksikan AI untuk membangun arsitektur...', 'info');
+        
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({ action: 'askGemini', prompt: promptInput, templateId: app.selectedTemplate || null })
+          });
+          const res = await response.json();
+          
+          if (res.status === 'success') {
+            try {
+              const generatedFiles = JSON.parse(res.data.answer);
+              let count = 0;
+              
+              for (const [filename, content] of Object.entries(generatedFiles)) {
+                app.files[filename] = content;
+                count++;
+              }
+              
+              ui.toast(count + ' file berhasil di-build!', 'success');
+              
+              ui.log('------------------------------------------------', 'highlight');
+              ui.log('✅ PROSES BUILD SELESAI 100%', 'success');
+              ui.log('👉 Klik "Download ZIP" untuk menyimpan ke komputer Anda.', 'warn');
+              ui.log('👉 Panduan cara pakainya sedang dibuka otomatis...', 'warn');
+              ui.log('------------------------------------------------', 'highlight');
+
+              // Otomatis fokus ke README jika ada
+              if (app.files['README.md']) {
+                setTimeout(() => {
+                  app.switchFile('README.md');
+                  ui.toast('Membuka Panduan Instalasi', 'warn');
+                  app.refreshPreview();
+                }, 1000);
+              } else {
+                app.switchFile(app.activeFile);
+                app.refreshPreview();
+              }
+              
+            } catch (parseError) {
+              ui.log('AI gagal merespons dengan format JSON yang valid.', 'error');
+              ui.toast('Gagal memisahkan file. Coba Generate ulang.', 'error');
+            }
+            document.getElementById('input-prompt').value = '';
+          } else {
+            throw new Error(res.message);
+          }
+        } catch (err) {
+          ui.toast('Gagal memproses AI', 'error');
+          ui.log('AI Error: ' + err.message, 'error');
+        } finally {
+          ui.reset('btn-ai');
+        }
+      },
+
+      // ==========================================
+      // FITUR 1: DEPLOYMENT INSTAN ke Vercel/Netlify
+      // ==========================================
+      deploy: async () => {
+        const provider = document.getElementById('input-deploy-provider').value;
+        const token = document.getElementById('input-deploy-token').value.trim();
+        const projectName = document.getElementById('input-project').value.trim() || 'appcraft-project';
+        const resultBox = document.getElementById('deploy-result');
+
+        if (!token) return ui.toast('Access Token wajib diisi', 'error');
+        if (Object.keys(app.files).length === 0) return ui.toast('Tidak ada file untuk dideploy', 'error');
+
+        // Simpan token di browser saja (localStorage) supaya tidak perlu diketik ulang
+        localStorage.setItem('appcraft_deploy_provider', provider);
+        localStorage.setItem('appcraft_deploy_token_' + provider, token);
+
+        resultBox.classList.add('hidden');
+        ui.loading('btn-deploy', 'Deploying...');
+        ui.log('Mengirim project ke ' + provider.toUpperCase() + '...', 'info');
+
+        try {
+          const action = provider === 'vercel' ? 'deployVercel' : 'deployNetlify';
+          const bodyPayload = {
+            action: action,
+            projectName: projectName,
+            files: app.files
+          };
+          if (provider === 'vercel') bodyPayload.vercelToken = token;
+          else bodyPayload.netlifyToken = token;
+
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify(bodyPayload)
+          });
+          const res = await response.json();
+
+          if (res.status === 'success') {
+            const url = res.data.url;
+            ui.toast('Deploy berhasil!', 'success');
+            ui.log('✅ Aplikasi live di: ' + (url || '(cek dashboard provider)'), 'success');
+            if (url) {
+              resultBox.innerHTML = '🎉 Live di: <a href="' + url + '" target="_blank">' + escapeHTML(url) + '</a>';
+              resultBox.classList.remove('hidden');
+            }
+          } else {
+            throw new Error(res.message);
+          }
+        } catch (err) {
+          ui.toast('Deploy gagal', 'error');
+          ui.log('Deploy Error: ' + err.message, 'error');
+        } finally {
+          ui.reset('btn-deploy');
+        }
+      },
+
+      // ==========================================
+      // FITUR 2: VERSION CONTROL (Auto-Save & History)
+      // ==========================================
+      openHistory: async () => {
+        const id = document.getElementById('input-project').value.trim();
+        if (!id) return ui.toast('Isi Project ID terlebih dahulu', 'error');
+
+        const modal = document.getElementById('history-modal');
+        const body = document.getElementById('history-body');
+        modal.classList.remove('hidden');
+        body.innerHTML = '<div class="version-empty">Memuat riwayat...</div>';
+
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({ action: 'getHistory', projectId: id })
+          });
+          const res = await response.json();
+          if (res.status !== 'success') throw new Error(res.message);
+
+          const versions = res.data.versions || [];
+          if (versions.length === 0) {
+            body.innerHTML = '<div class="version-empty">Belum ada riwayat untuk project ini. Klik "Simpan" dulu.</div>';
+            return;
+          }
+
+          body.innerHTML = versions.map(v => {
+            const dateStr = new Date(v.timestamp).toLocaleString('id-ID');
+            return '<div class="version-item">' +
+              '<div class="version-meta"><strong>' + escapeHTML(v.label) + '</strong>' + dateStr + '</div>' +
+              '<button class="btn btn-outline btn-sm" onclick="app.rollbackToVersion(' + v.rowIndex + ')">↩️ Rollback</button>' +
+              '</div>';
+          }).join('');
+        } catch (err) {
+          body.innerHTML = '<div class="version-empty">Gagal memuat riwayat: ' + escapeHTML(err.message) + '</div>';
+        }
+      },
+
+      closeHistory: () => {
+        document.getElementById('history-modal').classList.add('hidden');
+      },
+
+      rollbackToVersion: async (rowIndex) => {
+        const id = document.getElementById('input-project').value.trim();
+        if (!confirm('Kembalikan project ke versi ini? Versi saat ini akan tetap tersimpan di riwayat.')) return;
+
+        ui.log('Melakukan rollback ke versi terpilih...', 'warn');
+        try {
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({ action: 'rollbackVersion', projectId: id, email: app.email, rowIndex: rowIndex })
+          });
+          const res = await response.json();
+          if (res.status !== 'success') throw new Error(res.message);
+
+          const restoredFiles = JSON.parse(res.data.code);
+          app.files = restoredFiles;
+          app.switchFile(app.activeFile in app.files ? app.activeFile : 'index.html');
+          app.refreshPreview();
+
+          ui.toast('Rollback berhasil!', 'success');
+          ui.log('✅ Project dikembalikan ke versi sebelumnya.', 'success');
+          app.closeHistory();
+        } catch (err) {
+          ui.toast('Rollback gagal', 'error');
+          ui.log('Rollback Error: ' + err.message, 'error');
+        }
+      }
+    };
+
+    // Restore token deploy tersimpan (jika ada) supaya user tak perlu ketik ulang
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedProvider = localStorage.getItem('appcraft_deploy_provider');
+      if (savedProvider) {
+        const providerSelect = document.getElementById('input-deploy-provider');
+        if (providerSelect) providerSelect.value = savedProvider;
+        const savedToken = localStorage.getItem('appcraft_deploy_token_' + savedProvider);
+        const tokenInput = document.getElementById('input-deploy-token');
+        if (savedToken && tokenInput) tokenInput.value = savedToken;
+      }
+    });
+  </script>
+</body>
+</html>
