@@ -6,8 +6,8 @@
   @ts-ignore 
 */
 
-const SHEET_ID = 'MASUKKAN_ID_SPREADSHEET_DI_SINI';
-const GEMINI_API_KEY = 'MASUKKAN_API_KEY_GEMINI_ANDA';
+const SHEET_ID = '1z5pmGZ3B_bDfdON0bPU1MxqANYm5luHdeekvctrxJeQ';
+const GEMINI_API_KEY = 'AQ.Ab8RN6IQSjqkG2MsFmtavCpV47nCSLBZUQunsyFYmo2ZjEnYkA';
 
 // ==========================================
 // FITUR 3: "AI CUSTOM CONTEXT" - LIBRARY TEMPLATE / STARTER KITS
